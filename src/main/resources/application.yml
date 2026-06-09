@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: chubb_Insurance
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    defer-datasource-initialization: true
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+  h2:
+    console:
+      enabled: ${H2_CONSOLE_ENABLED:true}
+      path: /h2-console
+  data:
+    web:
+      pageable:
+        default-page-size: ${PAGE_DEFAULT_SIZE:10}
+        max-page-size: ${PAGE_MAX_SIZE:100}
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# Contract-first: the static OpenAPI YAML is the source of truth. Swagger UI is
+# pointed at the committed spec rather than the code-generated /v3/api-docs
+# (which stays enabled only so the Swagger UI controller is registered).
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /openapi/policies-api.yaml

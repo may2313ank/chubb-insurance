@@ -1,0 +1,502 @@
+openapi: 3.0.3
+info:
+  title: Policy Overview Dashboard API
+  description: >-
+    BFF (Backend-for-Frontend) API for the APAC Policy Overview Dashboard.
+    Aggregates and transforms policy data from the core policy database into a
+    frontend-friendly format for the Angular Material table.
+
+    This document is the source of truth (contract-first).
+  version: 1.0.0
+  contact:
+    name: APAC Operations Engineering
+    email: apac-ops-engineering@chubb.com
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+paths:
+  /api/v1/policies:
+    get:
+      operationId: listPolicies
+      summary: List policies
+      description: >-
+        Returns a paginated list of policies with optional filtering (status,
+        line of business, region, effective-date range), free-text search, and
+        sorting.
+      tags:
+        - Policies
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PolicyStatus'
+        - name: lineOfBusiness
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LineOfBusiness'
+        - name: region
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/Region'
+        - name: effectiveFrom
+          in: query
+          required: false
+          description: Inclusive lower bound for the policy effective date.
+          schema:
+            type: string
+            format: date
+        - name: effectiveTo
+          in: query
+          required: false
+          description: Inclusive upper bound for the policy effective date.
+          schema:
+            type: string
+            format: date
+        - name: q
+          in: query
+          required: false
+          description: >-
+            Free-text search across policy number, policyholder name, and
+            underwriter (case-insensitive).
+          schema:
+            type: string
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
+      responses:
+        '200':
+          description: A page of policies.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedPolicyResponse'
+        '400':
+          description: Invalid filter, sort, or pagination parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The policy service is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/policies/flag:
+    patch:
+      operationId: flagPolicies
+      summary: Bulk flag policies for review
+      description: >-
+        Flags every policy in the supplied list of ids for review. Ids that do
+        not correspond to an existing policy are returned in missingPolicyIds.
+      tags:
+        - Policies
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FlagPoliciesRequest'
+      responses:
+        '200':
+          description: The flagging outcome.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FlagPoliciesResponse'
+        '400':
+          description: The request body failed validation (e.g. empty id list).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The policy service is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/policies/summary:
+    get:
+      operationId: getPolicySummary
+      summary: Aggregated policy statistics
+      description: >-
+        Returns aggregated statistics: policy counts by status, total premium
+        by line of business, and the count of policies expiring within 30 days.
+      tags:
+        - Policies
+      responses:
+        '200':
+          description: Aggregated statistics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyStatistics'
+        '503':
+          description: The policy service is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/policies/{id}:
+    get:
+      operationId: getPolicy
+      summary: Get a policy by id
+      description: Returns the full detail of a single policy.
+      tags:
+        - Policies
+      parameters:
+        - $ref: '#/components/parameters/PolicyId'
+      responses:
+        '200':
+          description: The requested policy.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PolicyResponse'
+        '400':
+          description: The supplied id is not a valid UUID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No policy exists with the supplied id.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: The policy service is temporarily unavailable.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+
+  parameters:
+    PolicyId:
+      name: id
+      in: path
+      required: true
+      description: The policy's unique identifier.
+      schema:
+        type: string
+        format: uuid
+        example: 3fa85f64-5717-4562-b3fc-2c963f66afa6
+    Page:
+      name: page
+      in: query
+      required: false
+      description: Zero-based page index.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      description: Maximum number of records per page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        default: 10
+    Sort:
+      name: sort
+      in: query
+      required: false
+      description: >-
+        Sort directive in the form `property,(asc|desc)`. Sortable properties:
+        policyNumber, premiumAmount, effectiveDate, expiryDate, status.
+      schema:
+        type: string
+        example: effectiveDate,desc
+
+  schemas:
+
+    Region:
+      type: string
+      description: The policy's region.
+      enum:
+        - Singapore
+        - Hong Kong
+        - Australia
+        - Japan
+        - Thailand
+        - Indonesia
+        - Malaysia
+        - Philippines
+      example: Singapore
+
+    LineOfBusiness:
+      type: string
+      description: The policy's line of business.
+      enum:
+        - Property
+        - Casualty
+        - A&H
+        - Marine
+      example: Property
+
+    PolicyStatus:
+      type: string
+      description: The policy's lifecycle status.
+      enum:
+        - Active
+        - Expired
+        - Pending
+        - Cancelled
+      example: Active
+
+    Money:
+      type: object
+      description: A monetary amount together with its ISO 4217 currency code.
+      required:
+        - amount
+        - currency
+      properties:
+        amount:
+          type: number
+          format: decimal
+          example: 12500.00
+        currency:
+          type: string
+          minLength: 3
+          maxLength: 3
+          example: SGD
+
+    PolicySummary:
+      type: object
+      description: A single policy as presented on the dashboard list.
+      required:
+        - id
+        - policyNumber
+        - policyholderName
+        - lineOfBusiness
+        - status
+        - premium
+        - region
+        - effectiveDate
+        - expiryDate
+        - flaggedForReview
+        - isExpiringSoon
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyNumber:
+          type: string
+          example: POL-000123
+        policyholderName:
+          type: string
+          example: Wei Lin Tan
+        lineOfBusiness:
+          $ref: '#/components/schemas/LineOfBusiness'
+        status:
+          $ref: '#/components/schemas/PolicyStatus'
+        premium:
+          $ref: '#/components/schemas/Money'
+        region:
+          $ref: '#/components/schemas/Region'
+        effectiveDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        flaggedForReview:
+          type: boolean
+        isExpiringSoon:
+          type: boolean
+          description: True when the expiry date is within 30 days from today.
+
+    PagedPolicyResponse:
+      type: object
+      description: Paginated list of policy summaries.
+      required:
+        - content
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/PolicySummary'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        size:
+          type: integer
+          format: int32
+          minimum: 1
+        totalElements:
+          type: integer
+          format: int64
+          minimum: 0
+        totalPages:
+          type: integer
+          format: int32
+          minimum: 0
+
+    PolicyResponse:
+      type: object
+      description: Full detail of a single policy.
+      required:
+        - id
+        - policyNumber
+        - policyholderName
+        - lineOfBusiness
+        - status
+        - premium
+        - effectiveDate
+        - expiryDate
+        - region
+        - underwriter
+        - flaggedForReview
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+        policyNumber:
+          type: string
+          example: POL-000123
+        policyholderName:
+          type: string
+          example: Wei Lin Tan
+        lineOfBusiness:
+          $ref: '#/components/schemas/LineOfBusiness'
+        status:
+          $ref: '#/components/schemas/PolicyStatus'
+        premium:
+          $ref: '#/components/schemas/Money'
+        effectiveDate:
+          type: string
+          format: date
+        expiryDate:
+          type: string
+          format: date
+        region:
+          $ref: '#/components/schemas/Region'
+        underwriter:
+          type: string
+          example: Aisha Rahman
+        flaggedForReview:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FlagPoliciesRequest:
+      type: object
+      description: A non-empty list of policy ids to flag for review.
+      required:
+        - policyIds
+      properties:
+        policyIds:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    FlagPoliciesResponse:
+      type: object
+      description: Outcome of a bulk flag operation.
+      required:
+        - requested
+        - flagged
+        - missingPolicyIds
+      properties:
+        requested:
+          type: integer
+          format: int32
+          description: Number of ids supplied in the request.
+        flagged:
+          type: integer
+          format: int32
+          description: Number of policies actually flagged.
+        missingPolicyIds:
+          type: array
+          description: Supplied ids that did not match an existing policy.
+          items:
+            type: string
+            format: uuid
+
+    PolicyStatistics:
+      type: object
+      description: Aggregated dashboard statistics.
+      required:
+        - countsByStatus
+        - totalPremiumByLineOfBusiness
+        - expiringSoonCount
+      properties:
+        countsByStatus:
+          type: object
+          description: Policy count keyed by status display value.
+          additionalProperties:
+            type: integer
+            format: int64
+          example:
+            Active: 120
+            Expired: 14
+        totalPremiumByLineOfBusiness:
+          type: object
+          description: Summed premium keyed by line-of-business display value.
+          additionalProperties:
+            type: number
+            format: decimal
+          example:
+            Property: 1250000.00
+            Marine: 875000.00
+        expiringSoonCount:
+          type: integer
+          format: int64
+          description: Count of policies expiring within 30 days from today.
+
+    ErrorResponse:
+      type: object
+      description: >-
+        Standard error payload. Never exposes internal stack traces.
+      required:
+        - timestamp
+        - status
+        - error
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          example: 2026-06-08T10:15:30Z
+        status:
+          type: integer
+          format: int32
+          example: 404
+        error:
+          type: string
+          example: Not Found
+        message:
+          type: string
+          example: Policy not found.
+        path:
+          type: string
+          example: /api/v1/policies/3fa85f64-5717-4562-b3fc-2c963f66afa6
