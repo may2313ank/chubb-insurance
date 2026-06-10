@@ -1,5 +1,6 @@
 package com.chubb.assessment.api.mapper;
 
+import com.chubb.assessment.api.dto.request.PolicyFilterRequest;
 import com.chubb.assessment.domain.models.PolicyFilter;
 import org.springframework.stereotype.Component;
 
@@ -8,6 +9,16 @@ import java.util.Optional;
 
 @Component
 public class RequestDtoToDomain {
+
+    public PolicyFilter toPolicyFilter(PolicyFilterRequest request) {
+        return toPolicyFilter(
+                request.status(),
+                request.lineOfBusiness(),
+                request.region(),
+                request.effectiveFrom(),
+                request.effectiveTo(),
+                request.q());
+    }
 
     public PolicyFilter toPolicyFilter(String status,
                                        String lineOfBusiness,

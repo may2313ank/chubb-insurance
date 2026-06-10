@@ -22,25 +22,32 @@ paths:
       operationId: listPolicies
       summary: List policies
       description: >-
-        Returns a paginated list of policies with optional filtering (status,
-        line of business, region, effective-date range), free-text search, and
-        sorting.
+        Returns a paginated list of policies. Filtering (status, line of
+        business, region, effective-date range), free-text search, pagination
+        and sorting are all supplied as query parameters. Every filter is
+        optional — omit them to list all policies.
       tags:
         - Policies
       parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+        - $ref: '#/components/parameters/Sort'
         - name: status
           in: query
           required: false
+          description: Filter by policy lifecycle status.
           schema:
             $ref: '#/components/schemas/PolicyStatus'
         - name: lineOfBusiness
           in: query
           required: false
+          description: Filter by line of business.
           schema:
             $ref: '#/components/schemas/LineOfBusiness'
         - name: region
           in: query
           required: false
+          description: Filter by region.
           schema:
             $ref: '#/components/schemas/Region'
         - name: effectiveFrom
@@ -65,9 +72,6 @@ paths:
             underwriter (case-insensitive).
           schema:
             type: string
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/Size'
-        - $ref: '#/components/parameters/Sort'
       responses:
         '200':
           description: A page of policies.

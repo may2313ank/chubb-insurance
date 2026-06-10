@@ -27,6 +27,10 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+logging:
+  pattern:
+    correlation: "[%X{correlationId:-}] "
+
 # Contract-first: the static OpenAPI YAML is the source of truth. Swagger UI is
 # pointed at the committed spec rather than the code-generated /v3/api-docs
 # (which stays enabled only so the Swagger UI controller is registered).
